@@ -2,9 +2,10 @@ import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { PrismaClient } from '../../generated/prisma';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { HttpStatus, Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ChangeOrderStatusDto, OrderPaginationDto } from './dto';
+import { ChangeOrderStatusDto, OrderPaginationDto, PaidOrderDto } from './dto';
 import { NATS_SERVICE} from '../config';
 import { firstValueFrom } from 'rxjs';
+import { OrderWithProducts } from './orders/interfaces';
 
 
 
@@ -24,6 +25,47 @@ constructor
     this.logger.log("Database Connected")
   }
 
+async paidSucceded(paidOrderDto:PaidOrderDto){
+
+
+ const updatedOrder= await this.order.update({
+    where:{
+      id:paidOrderDto.orderId
+    },
+    data:{
+      status:"PAID",
+      paid:true,
+      paidAt:new Date().toISOString(),
+      recepiId:paidOrderDto.recepiId.toString(),
+      OrderRecipe:{
+        create:{
+          recipeId:paidOrderDto.recepiId.toString()
+        }
+      }
+    }
+  })
+  this.logger.log(updatedOrder)
+  return updatedOrder
+
+  }
+
+
+
+  async createPayment(orderWithProducts:OrderWithProducts){
+
+    const payment= await firstValueFrom(
+      this.client.send("create.preference",{
+        orderId:orderWithProducts.id,
+        items:orderWithProducts.OrderItem.map(item=>{
+          return{
+            name:item.name,
+            price:item.price,
+            quantity:item.quantity
+          }
+        })
+      }))
+      return payment
+  }
   async create(createOrderDto: CreateOrderDto) {
   const productsId=createOrderDto.items.map(i=>i.productId)
 

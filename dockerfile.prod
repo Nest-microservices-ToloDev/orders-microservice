@@ -17,6 +17,8 @@ WORKDIR /usr/src/app
 ARG ORDER_MS_DATABASE
 ENV DATABASE_URL=$ORDER_MS_DATABASE
 
+RUN echo "database_url ::: $ORDERS_DATABASE_URL";
+
 COPY --from=deps /usr/src/app/node_modules ./node_modules
 
 COPY . . 
